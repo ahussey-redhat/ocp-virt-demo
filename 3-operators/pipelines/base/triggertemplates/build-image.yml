@@ -1,0 +1,52 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: deploy-aap-instance
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  params:
+  - name: image-name
+    description: Name of the image to build
+  - name: author
+    description: The author of this git commit
+  - name: git-branch
+    description: The name of the git branch
+  - name: git-repo
+    description: The git repo URL
+  resourcetemplates:
+  - apiVersion: tekton.dev/v1
+    kind: PipelineRun
+    metadata:
+      generateName: build-image-$(tt.params.image-name)-$(tt.params.git-branch)-
+    spec:
+      taskRunSpecs:
+        - pipelineTaskName: deploy-image
+          serviceAccountName: deployer
+      taskRunTemplate:
+        serviceAccountName: pipeline
+      pipelineRef:
+        name: build-image
+      params:
+      - name: image-name
+        value: $(tt.params.image-name)
+      - name: author
+        value: $(tt.params.author)
+      - name: image-config-repo
+        value: $(tt.params.git-repo)
+      workspaces:
+        - name: ssh-creds
+          secret:
+            secretName: argocd-github-ssh
+        - name: aap-manifest-directory
+          secret:
+            secretName: manifest
+        - name: working-directory
+          volumeClaimTemplate:
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi

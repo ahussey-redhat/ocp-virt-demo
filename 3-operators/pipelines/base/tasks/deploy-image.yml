@@ -1,0 +1,125 @@
+# WIP
+# This should:
+# 1. Deploy an AAP instance, specific to the ServiceNow incident that was raised
+# 2. Be managed utilizing GitOps
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    tekton.dev/displayName: Deploy a AAP instance
+    tekton.dev/pipelines.minVersion: 0.17.0
+    tekton.dev/tags: aap
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: deploy-aap-instance
+  labels:
+    app.kubernetes.io/version: '0.1'
+    operator.tekton.dev/operand-name: openshift-pipelines-addons
+    operator.tekton.dev/provider-type: ahussey
+spec:
+  description: >-
+    This task runs all the commands required to deploy an AAP instance.
+  params:
+    - default: "20"
+      description: The max number of managed nodes
+      name: maxHosts
+      type: string
+    - description: Branch name
+      name: branchName
+      type: string
+    - description: Team name
+      name: teamName
+      type: string
+    - description: AAP instance owner
+      name: owner
+      type: string
+    - description: ServiceNow incident ID
+      name: serviceNowIncidentID
+      type: string
+    - description: AAP instance number
+      name: instanceID
+      type: string
+    - default: "false"
+      description: Is this AAP instance already defined?
+      name: instanceAlreadyDefined
+      type: string
+  results:
+    - name: controller-admin-password
+      description: The admin password for this controller AAP instance
+    - name: hub-admin-password
+      description: The admin password for this private automation hub AAP instance
+    - name: eda-admin-password
+      description: The admin password for this event driven ansible AAP instance
+    - name: controller-url
+      description: The url for this controller AAP instance
+    - name: hub-url
+      description: The url for this private automation hub AAP instance
+    - name: eda-url
+      description: The url for this event driven ansible AAP instance
+  steps:
+    # Create AAP application in ArgoCD
+    - name: deploy-aap-instance
+      env:
+        - name: HOME
+          value: /tekton/home
+      image: >-
+        image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+      resources: {}
+      script: |
+        #!/usr/bin/env bash
+        set -euxo pipefail
+
+        export BRANCH_NAME=$(params.branchName)
+        export TEAM_NAME=$(params.teamName)
+        export INSTANCE_ID=$(params.instanceID)
+        export OWNER=$(params.owner)
+        export SERVICE_NOW_INCIDENT_ID=$(params.serviceNowIncidentID)
+
+        # Add logic to allow force deployment
+        export INSTANCE_ALREADY_DEFINED=$(params.instanceAlreadyDefined)
+
+        if [[ ${INSTANCE_ALREADY_DEFINED} == "true" ]]; then
+          echo "AAP instance already defined. Skipping step."
+          # We still want to retrieve the admin password
+          oc get secret ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-admin-password -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath="{.data.password}" | base64 -d | tee $(results.controller-admin-password.path)
+          exit 0
+        fi
+
+        [[ "$(workspaces.manifest-dir.bound)" == "true" ]] && \
+        cd $(workspaces.manifest-dir.path)
+
+        [[ "$(workspaces.kubeconfig-dir.bound)" == "true" ]] && \
+        [[ -f $(workspaces.kubeconfig-dir.path)/kubeconfig ]] && \
+        export KUBECONFIG=$(workspaces.kubeconfig-dir.path)/kubeconfig
+
+        oc apply -f $(workspaces.output.path)/environments/${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}/application.yml
+
+        echo "Waiting 120 seconds for initial admin password to be created"
+        sleep 120
+        oc get secret ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-controller-admin-password -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath="{.data.password}" | base64 -d | tee $(results.controller-admin-password.path)
+        oc get secret ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-hub-admin-password -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath="{.data.password}" | base64 -d | tee $(results.hub-admin-password.path)
+        oc get secret ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-eda-admin-password -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath="{.data.password}" | base64 -d | tee $(results.eda-admin-password.path)
+
+        oc get route ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-controller -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath='{.status.ingress[0].host}' | tee $(results.controller-url.path)
+        oc get route ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-hub -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath='{.status.ingress[0].host}' | tee $(results.hub-url.path)
+        oc get route ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}-eda -n ${BRANCH_NAME}-${TEAM_NAME} -o jsonpath='{.status.ingress[0].host}' | tee $(results.eda-url.path)
+        exit 0
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+
+  # Workspace definitions
+  workspaces:
+    - description: >-
+        The workspace which contains kubernetes manifests which we want to apply
+        on the cluster.
+      name: manifest-dir
+      optional: true
+    - description: >-
+        The workspace which contains the the kubeconfig file if in case we want
+        to run the oc command on another cluster.
+      name: kubeconfig-dir
+      optional: true
+    - description: >-
+        The workspace which contains the ArgoCD cloned git repository
+      name: output

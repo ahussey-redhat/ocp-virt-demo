@@ -1,0 +1,30 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: build-image-
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  # taskRunSpecs:
+  #   - pipelineTaskName: deploy-image
+  #     serviceAccountName: deployer
+  taskRunTemplate:
+    serviceAccountName: pipeline
+  pipelineRef:
+    name: build-image
+  params:
+  - name: image-name
+    value: rhel8
+  workspaces:
+    - name: ssh-creds
+      secret:
+        secretName: image-github-ssh
+    - name: working-directory
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi

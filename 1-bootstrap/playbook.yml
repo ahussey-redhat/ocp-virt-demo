@@ -1,0 +1,85 @@
+---
+- name: Install and configure ArgoCD
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+  tasks:
+    # Deploy ArgoCD
+    - name: configure argocd namespace
+      kubernetes.core.k8s:
+        src: "argocd/namespace.yml"
+      failed_when: false
+
+    - name: configure argocd operatorgroup
+      kubernetes.core.k8s:
+        src: "argocd/operatorgroup.yml"
+
+    - name: configure argocd subscription
+      kubernetes.core.k8s:
+        src: "argocd/subscription.yml"
+      register: deploy_argocd
+      until: "deploy_argocd.result.status.state == 'AtLatestKnown'"
+      retries: 10
+      delay: 10
+
+    - name: configure argocd cluster role binding
+      kubernetes.core.k8s:
+        src: "argocd/clusterrolebinding.yml"
+
+    - name: configure argocd repo
+      kubernetes.core.k8s:
+        template: "argocd/repo.yml"
+
+    - name: configure argocd initial application
+      kubernetes.core.k8s:
+        template: "argocd/application.yml"
+
+    # This namespace is later managed by GitOps, but is required for the initial bootstrapping to complete
+    - name: configure image-build project
+      kubernetes.core.k8s:
+        resource_definition:
+          kind: Project
+          apiVersion: project.openshift.io/v1
+          metadata:
+            name: image-build
+            labels:
+              kubernetes.io/metadata.name: image-build
+      failed_when: false
+
+    - name: configure SSH secret
+      kubernetes.core.k8s:
+        resource_definition:
+          kind: Secret
+          apiVersion: v1
+          metadata:
+            name: argocd-github-ssh
+            namespace: image-build
+            annotations:
+              tekton.dev/git-0: github.com
+          type: Opaque
+          data:
+            id_rsa: "{{ ssh_private_key | b64encode}}"
+
+    - name: link SSH secret to pipelines service account
+      kubernetes.core.k8s:
+        resource_definition:
+          kind: ServiceAccount
+          apiVersion: v1
+          metadata:
+            name: pipeline
+            namespace: image-build
+          secrets:
+            - name: argocd-github-ssh
+
+    - name: configure webhook secret
+      kubernetes.core.k8s:
+        resource_definition:
+          kind: Secret
+          apiVersion: v1
+          metadata:
+            name: webhook-secret
+            namespace: image-build
+          type: Opaque
+          data:
+            secretToken: "{{ webhook_secret | b64encode }}"

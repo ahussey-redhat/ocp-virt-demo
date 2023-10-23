@@ -1,0 +1,112 @@
+# WIP
+# This should:
+# 1. Deploy an AAP instance, specific to the ServiceNow incident that was raised
+# 2. Be managed utilizing GitOps
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    tekton.dev/displayName: Prepare to deploy an AAP instance
+    tekton.dev/pipelines.minVersion: 0.17.0
+    tekton.dev/tags: aap
+    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: prepare-aap-instance
+  labels:
+    app.kubernetes.io/version: '0.1'
+    operator.tekton.dev/operand-name: openshift-pipelines-addons
+    operator.tekton.dev/provider-type: ahussey
+spec:
+  description: >-
+    This task runs all the commands required to prepare to deploy an AAP instance.
+  params:
+    - default: "20"
+      description: The max number of managed nodes
+      name: maxHosts
+      type: string
+    - description: Branch name
+      name: branchName
+      type: string
+    - description: Team name
+      name: teamName
+      type: string
+    - description: AAP instance owner
+      name: owner
+      type: string
+    - description: ServiceNow incident ID
+      name: serviceNowIncidentID
+      type: string
+    - description: AAP instance number
+      name: instanceID
+      type: string
+  results:
+    - name: instance-already-defined
+      description: Whether the instance already is defined
+    - name: app-url
+      description: The OpenShift Cluster's application URL
+  steps:
+    # Create environment, and update appropriate variables for the AAP instance
+    - name: kustomize-aap-instance-gitops
+      env:
+        - name: HOME
+          value: /tekton/home
+      image: >-
+        quay.io/ahussey/tekton-utils:latest
+      resources: {}
+      script: |
+        #!/usr/bin/env bash
+        set -euxo pipefail
+
+        export BRANCH_NAME=$(params.branchName)
+        export TEAM_NAME=$(params.teamName)
+        export INSTANCE_ID=$(params.instanceID)
+        export OWNER=$(params.owner)
+        export SERVICE_NOW_INCIDENT_ID=$(params.serviceNowIncidentID)
+
+        [[ "$(workspaces.manifest-dir.bound)" == "true" ]] && \
+        cd $(workspaces.manifest-dir.path)
+
+        [[ "$(workspaces.kubeconfig-dir.bound)" == "true" ]] && \
+        [[ -f $(workspaces.kubeconfig-dir.path)/kubeconfig ]] && \
+        export KUBECONFIG=$(workspaces.kubeconfig-dir.path)/kubeconfig
+
+        # Get application URL
+        oc get route deploy-aap -n aap-as-a-service -o jsonpath='{.status.ingress[0].host}' | sed -nr 's/^deploy-aap.(.*)$/\1/p' | tee $(results.app-url.path)
+
+        if [[ -d $(workspaces.output.path)/environments/${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID} ]]; then
+          echo "AAP instance for ${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID} already defined. Skipping step."
+          # publish result that says instance already defined
+          echo -n 'true' | tee $(results.instance-already-defined.path)
+          exit 0
+        else
+          echo -n 'false' | tee $(results.instance-already-defined.path)
+        fi
+
+        if [[ ! -d $(workspaces.output.path)/environments/${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID} ]]; then
+          cp -r $(workspaces.output.path)/environments/template $(workspaces.output.path)/environments/${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}
+        fi
+
+        cd $(workspaces.output.path)/environments/${BRANCH_NAME}-${TEAM_NAME}-${INSTANCE_ID}
+
+        # Cleanup bad copy
+        rm -rf template
+
+        exit 0
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+  # Workspace definitions
+  workspaces:
+    - description: >-
+        The workspace which contains kubernetes manifests which we want to apply
+        on the cluster.
+      name: manifest-dir
+      optional: true
+    - description: >-
+        The workspace which contains the the kubeconfig file if in case we want
+        to run the oc command on another cluster.
+      name: kubeconfig-dir
+      optional: true
+    - description: >-
+        The workspace which contains the ArgoCD cloned git repository
+      name: output
