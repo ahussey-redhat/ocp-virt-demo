@@ -108,3 +108,20 @@ spec:
           value: "$(params.image-name)"
       runAfter:
         - customise-vm
+    - name: copy-template-to-openshift-project
+      taskRef:
+        kind: ClusterTask
+        name: copy-template
+      params:
+        - name: sourceTemplateName
+          value: "$(params.base-template)"
+        - name: sourceTemplateNamespace
+          value: image-build
+        - name: targetTemplateName
+          value: "$(params.image-name)"
+        - name: targetTemplateNamespace
+          value: openshift
+        - name: allowReplace
+          value: "true"
+      runAfter:
+        - sysprep-vm
