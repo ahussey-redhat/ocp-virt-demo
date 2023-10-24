@@ -66,6 +66,22 @@ roleRef:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
+  name: pipelines-wait-for-vmi-status-task
+  namespace: image-build
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+subjects:
+  - kind: ServiceAccount
+    name: pipeline
+    namespace: image-build
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: wait-for-vmi-status-task
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
   name: pipelines-copy-template-task
   namespace: openshift
   annotations:
