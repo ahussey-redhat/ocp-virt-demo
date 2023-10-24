@@ -147,3 +147,5 @@ spec:
       params:
         - name: pvc
           value: "$(params.image-name)"
+      runAfter:
+        - stop-vm
