@@ -46,11 +46,11 @@ spec:
         - name: sourceTemplateName
           value: "$(params.base-template)"
         - name: sourceTemplateNamespace
-          value: openshift-virtualization-os-images
+          value: openshift
         - name: targetTemplateName
           value: "$(params.image-name)"
         - name: targetTemplateNamespace
-          value: openshift-virtualization-os-images
+          value: openshift
         - name: allowReplace
           value: "true"
       runAfter:
