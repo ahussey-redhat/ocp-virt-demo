@@ -108,7 +108,7 @@ spec:
           value: "$(params.image-name)"
         - name: customizeCommands
           value: |
-            --copy-in /data01/4-image-build:/var/tmp/build
+            --copy-in /data01/image-build-scripts:/var/tmp/build
             --run /var/tmp/build/bootstrap.sh
             --selinux-relabel
       workspaces:

@@ -5,6 +5,4 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
 namespace: image-build
-resources:
-  - prepare-image.yml
-  - deploy-image.yml
+resources: []
