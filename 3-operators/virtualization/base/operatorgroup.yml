@@ -6,4 +6,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
   name: openshift-virtualization
   namespace: openshift-cnv
-spec: {}
+spec:
+  targetNamespaces:
+    - openshift-cnv
