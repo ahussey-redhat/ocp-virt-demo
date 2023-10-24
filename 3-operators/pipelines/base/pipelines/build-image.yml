@@ -92,7 +92,7 @@ spec:
         kind: ClusterTask
         name: cleanup-vm
       runAfter:
-        - create-vm-from-manifest
+        - create-vm-from-template
     - name: customise-vm
       taskRef:
         kind: Task
