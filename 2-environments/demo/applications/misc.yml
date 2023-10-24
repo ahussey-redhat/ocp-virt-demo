@@ -12,7 +12,7 @@ spec:
     server: 'https://kubernetes.default.svc'
   project: default
   source:
-    path: 3-operators/misc/overlays/test/hub
+    path: 3-operators/misc/overlays/test
     repoURL: >-
       git@github.com:ahussey-redhat/ocp-virt-demo.git
     targetRevision: main
