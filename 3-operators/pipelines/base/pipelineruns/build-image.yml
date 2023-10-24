@@ -1,4 +1,4 @@
-apiVersion: triggers.tekton.dev/v1beta1
+apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   name: build-image
@@ -9,14 +9,13 @@ spec:
   # taskRunSpecs:
   #   - pipelineTaskName: deploy-image
   #     serviceAccountName: deployer
-  taskRunTemplate:
-    serviceAccountName: pipeline
+  # taskRunTemplate:
+  #   serviceAccountName: pipeline
   pipelineRef:
     name: build-image
   params:
-  - name: image-name
-    value: rhel8
-
+    - name: image-name
+      value: rhel8
   workspaces:
     - name: ssh-creds
       secret:

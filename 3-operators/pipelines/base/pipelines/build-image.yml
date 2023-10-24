@@ -50,6 +50,9 @@ spec:
         - name: ssh-directory
           workspace: ssh-creds
     - name: create-vm-from-manifest
+      taskRef:
+        kind: ClusterTask
+        name: create-vm-from-manifest
       params:
         - name: manifest
           value: |
