@@ -76,7 +76,7 @@ spec:
         - name: stop
           value: "true"
         - name: delete
-          value: "true"
+          value: "false"
       taskRef:
         kind: ClusterTask
         name: cleanup-vm
