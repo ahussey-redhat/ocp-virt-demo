@@ -7,8 +7,17 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   workspaces:
-    - name: working-directory
     - name: ssh-creds
+      secret:
+        secretName: argocd-github-ssh
+    - name: working-directory
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
   params:
     - name: image-name
       type: string
@@ -21,21 +30,10 @@ spec:
       type: string
       description: Git branch to use
       default: main
-    - name: ssh-key-secret-name
-      type: string
-      default: build-ssh-publickey
-      description: Name of the secret containing the SSH Public Key
     - name: image-git-repo
       type: string
       default: git@github.com:ahussey-redhat/ocp-virt-demo.git
       description: Git repository that host's the image build configuration
-    - name: bootstrap-script
-      type: string
-      description: Bootstrap script to run
-      default: |
-        whoami
-        dnf update -y
-        echo "All done"
   tasks:
     - name: clone-image-repository
       taskRef:

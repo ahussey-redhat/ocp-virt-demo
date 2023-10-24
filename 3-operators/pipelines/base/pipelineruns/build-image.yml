@@ -19,7 +19,7 @@ spec:
   workspaces:
     - name: ssh-creds
       secret:
-        secretName: image-github-ssh
+        secretName: argocd-github-ssh
     - name: working-directory
       volumeClaimTemplate:
         spec:
