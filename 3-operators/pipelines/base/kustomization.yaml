@@ -8,5 +8,4 @@ resources:
   # - ./eventlisteners
   # - ./triggertemplates
   - ./pipelines
-  # - ./pipelineruns
   - ./tasks

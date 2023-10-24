@@ -3,6 +3,6 @@ kind: Kustomization
 metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "3"
-namespace: aap-as-a-service
+namespace: image-build
 resources:
   - build-image.yml

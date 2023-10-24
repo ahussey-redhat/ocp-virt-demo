@@ -1,7 +1,7 @@
 apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
-  name: deploy-aap-instance
+  name: build-image
   annotations:
     argocd.argoproj.io/sync-wave: "3"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
@@ -19,11 +19,19 @@ spec:
   - apiVersion: tekton.dev/v1
     kind: PipelineRun
     metadata:
-      generateName: build-image-$(tt.params.image-name)-$(tt.params.git-branch)-
+      generateName: build-image-$(tt.params.image-name)-based-on-$(tt.params.base-template)-
     spec:
-      taskRunSpecs:
-        - pipelineTaskName: deploy-image
-          serviceAccountName: deployer
+      # taskRunSpecs:
+      #   - pipelineTaskName: copy-template
+      #     taskServiceAccountName: copy-template-task
+      #   - pipelineTaskName: create-vm-from-template
+      #     taskServiceAccountName: create-vm-from-template-task
+      #   - pipelineTaskName: stop-vm
+      #     taskServiceAccountName: cleanup-vm-task
+      #   - pipelineTaskName: customise-vm
+      #     taskServiceAccountName: disk-virt-customize-task
+      #   - pipelineTaskName: sysprep-vm
+      #     taskServiceAccountName: disk-virt-sysprep-task
       taskRunTemplate:
         serviceAccountName: pipeline
       pipelineRef:
@@ -31,17 +39,14 @@ spec:
       params:
       - name: image-name
         value: $(tt.params.image-name)
-      - name: author
-        value: $(tt.params.author)
-      - name: image-config-repo
-        value: $(tt.params.git-repo)
+      # - name: author
+      #   value: $(tt.params.author)
+      - name: base-template
+        value: $(tt.params.base-template)
       workspaces:
         - name: ssh-creds
           secret:
             secretName: argocd-github-ssh
-        - name: aap-manifest-directory
-          secret:
-            secretName: manifest
         - name: working-directory
           volumeClaimTemplate:
             spec:
