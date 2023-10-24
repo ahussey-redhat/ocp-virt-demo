@@ -8,16 +8,7 @@ metadata:
 spec:
   workspaces:
     - name: ssh-creds
-      secret:
-        secretName: argocd-github-ssh
     - name: working-directory
-      volumeClaimTemplate:
-        spec:
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 1Gi
   params:
     - name: image-name
       type: string
