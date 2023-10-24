@@ -5,4 +5,5 @@ metadata:
 resources:
   - applications/devspaces-operator.yml
   - applications/pipelines-operator.yml
+  - applications/openshift-virtualization-operator.yml
   - applications/misc.yml
