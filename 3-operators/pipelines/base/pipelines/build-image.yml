@@ -13,6 +13,10 @@ spec:
     - name: image-name
       type: string
       description: Name of the image
+    - name: base-template
+      type: string
+      description: Base template to use for image
+      default: rhel9-server-large
     - name: git-branch
       type: string
       description: Git branch to use
@@ -25,10 +29,6 @@ spec:
       type: string
       default: git@github.com:ahussey-redhat/ocp-virt-demo.git
       description: Git repository that host's the image build configuration
-    - name: root-password
-      type: string
-      default: password
-      description: Initial root password to set
     - name: bootstrap-script
       type: string
       description: Bootstrap script to run
@@ -49,84 +49,37 @@ spec:
           workspace: working-directory
         - name: ssh-directory
           workspace: ssh-creds
-    - name: create-vm-from-manifest
+    - name: create-custom-template-from-base-template
       taskRef:
         kind: ClusterTask
-        name: create-vm-from-manifest
+        name: copy-template
       params:
-        - name: manifest
-          value: |
-            apiVersion: kubevirt.io/v1
-            kind: VirtualMachine
-            metadata:
-              name: $(params.image-name)
-            spec:
-              running: false
-              template:
-                metadata:
-                  labels:
-                    kubevirt.io/domain: $(params.image-name)
-                spec:
-                  accessCredentials:
-                    - sshPublicKey:
-                        source:
-                          secret:
-                            secretName: $(params.ssh-key-secret-name)
-                        propagationMethod:
-                          configDrive: {}
-                  hostname: $(params.image-name)
-                  domain:
-                    cpu:
-                      cores: 1
-                      sockets: 1
-                      threads: 1
-                    devices:
-                      disks:
-                        - name: containerdisk
-                          disk:
-                            bus: virtio
-                        - disk:
-                            bus: virtio
-                          name: cloudinitdisk
-                      interfaces:
-                        - bridge: {}
-                          name: default
-                          model: virtio
-                      networkInterfaceMultiqueue: true
-                      rng: {}
-                    resources:
-                      requests:
-                        memory: 1Gi
-                  networks:
-                    - name: default
-                      pod: {}
-                  terminationGracePeriodSeconds: 0
-                  volumes:
-                    - name: containerdisk
-                - cloudInitConfigDrive:
-                    userData: |-
-                      #cloud-config
-                      ssh_pwauth: True
-                      disable_root: False
-                      chpasswd:
-                        list: |
-                        expire: false
-                        root: $(params.root-password)
-                      write_files:
-                        - encoding: b64
-                          content: $(params.bootstrap-script)
-                          path: /var/tmp/bootstrap.sh
-                          owner: 'root:root'
-                          permissions: '0770'
-                      runcmd:
-                        - [sh, -c, /var/tmp/bootstrap.sh]
-                        - sed -i -e 's/without-password/yes/' /etc/ssh/sshd_config
-                        - systemctl restart sshd
-      workspaces:
-        - name: output
-          workspace: working-directory
+        - name: sourceTemplateName
+          value: "$(params.base-template)"
+        - name: sourceTemplateNamespace
+          value: openshift-virtualization-os-images
+        - name: targetTemplateName
+          value: "$(params.image-name)"
+        - name: targetTemplateNamespace
+          value: openshift-virtualization-os-images
+        - name: allowReplace
+          value: "true"
       runAfter:
         - clone-image-repository
+    - name: create-vm-from-template
+      taskRef:
+        kind: ClusterTask
+        name: create-vm-from-template
+      params:
+        - name: templateName
+          value: "$(params.image-name)"
+        - name: templateParams
+          value:
+            - "NAME:$(params.image-name)"
+        - name: vmNamespace
+          value: image-build
+      runAfter:
+        - create-custom-template-from-base-template
     - name: stop-vm
       params:
         - name: vmName
@@ -140,6 +93,23 @@ spec:
         name: cleanup-vm
       runAfter:
         - create-vm-from-manifest
+    - name: customise-vm
+      taskRef:
+        kind: Task
+        name: disk-virt-customize
+      params:
+        - name: pvc
+          value: "$(params.image-name)"
+        - name: customizeCommands
+          value: |
+            --copy-in /data01/4-image-build:/var/tmp/build
+            --run /var/tmp/build/bootstrap.sh
+            --selinux-relabel
+      workspaces:
+        - name: data01
+          workspace: working-directory
+      runAfter:
+        - stop-vm
     - name: sysprep-vm
       taskRef:
         kind: Task
@@ -148,4 +118,4 @@ spec:
         - name: pvc
           value: "$(params.image-name)"
       runAfter:
-        - stop-vm
+        - customise-vm
