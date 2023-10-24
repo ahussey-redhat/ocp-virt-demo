@@ -67,8 +67,25 @@ spec:
             - "NAME:$(params.image-name)"
         - name: vmNamespace
           value: image-build
+        - name: runStrategy
+          value: "Always"
       runAfter:
         - create-custom-template-from-base-template
+    - name: wait-for-vmi-status-status
+      taskRef:
+        kind: ClusterTask
+        name: wait-for-vmi-status
+      params:
+        - name: vmiName
+          value: "$(params.image-name)"
+        - name: vmiNamespace
+          value: image-build
+        - name: successCondition
+          value: status.printableStatus == Running
+        - name: failureCondition
+          value: status.printableStatus == Failed
+      runAfter:
+        - create-vm-from-template
     - name: stop-vm
       params:
         - name: vmName
@@ -81,7 +98,7 @@ spec:
         kind: ClusterTask
         name: cleanup-vm
       runAfter:
-        - create-vm-from-template
+        - wait-for-vmi-status-status
     - name: customise-vm
       taskRef:
         kind: ClusterTask
