@@ -16,6 +16,7 @@ spec:
   params:
   - name: image-name
     value: rhel8
+
   workspaces:
     - name: ssh-creds
       secret:

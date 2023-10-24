@@ -13,11 +13,15 @@ spec:
     - name: image-name
       type: string
       description: Name of the image
+    - name: git-branch
+      type: string
+      description: Git branch to use
+      default: main
     - name: ssh-key-secret-name
       type: string
       default: build-ssh-publickey
       description: Name of the secret containing the SSH Public Key
-    - name: image-config-repo
+    - name: image-git-repo
       type: string
       default: git@github.com:ahussey-redhat/ocp-virt-demo.git
       description: Git repository that host's the image build configuration
