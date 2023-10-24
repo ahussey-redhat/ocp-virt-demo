@@ -84,7 +84,7 @@ spec:
         - create-vm-from-template
     - name: customise-vm
       taskRef:
-        kind: Task
+        kind: ClusterTask
         name: disk-virt-customize
       params:
         - name: pvc
@@ -101,7 +101,7 @@ spec:
         - stop-vm
     - name: sysprep-vm
       taskRef:
-        kind: Task
+        kind: ClusterTask
         name: disk-virt-sysprep
       params:
         - name: pvc
